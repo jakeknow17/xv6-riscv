@@ -8,6 +8,8 @@ void main();
 void timerinit();
 
 // entry.S needs one stack per CPU.
+// __attribute__ ((aligned (16))) makes sure the stacks are 16 byte aligned.
+// the double parentheses are required after __attribute__.
 __attribute__ ((aligned (16))) char stack0[4096 * NCPU];
 
 // a scratch area per CPU for machine-mode timer interrupts.
@@ -22,16 +24,18 @@ start()
 {
   // set M Previous Privilege mode to Supervisor, for mret.
   unsigned long x = r_mstatus();
-  x &= ~MSTATUS_MPP_MASK;
-  x |= MSTATUS_MPP_S;
+  x &= ~MSTATUS_MPP_MASK; // Clear bits 11-12 (Machine Previous Privilege bits)
+  x |= MSTATUS_MPP_S; // Set previous prilege level to supervisor mode
   w_mstatus(x);
 
   // set M Exception Program Counter to main, for mret.
   // requires gcc -mcmodel=medany
+  // This allows the main function's address to be used as an entry point,
+  // even if it's located in a different part of the address space.
   w_mepc((uint64)main);
 
   // disable paging for now.
-  w_satp(0);
+  w_satp(0); // Upper 4 bits represent the mode. A 0 mode means paging is off.
 
   // delegate all interrupts and exceptions to supervisor mode.
   w_medeleg(0xffff);

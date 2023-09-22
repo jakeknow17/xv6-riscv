@@ -1,6 +1,7 @@
 #ifndef __ASSEMBLER__
 
 // which hart (core) is this?
+// this uses the `mhartid` register
 static inline uint64
 r_mhartid()
 {
@@ -48,17 +49,25 @@ w_mepc(uint64 x)
 #define SSTATUS_SIE (1L << 1)  // Supervisor Interrupt Enable
 #define SSTATUS_UIE (1L << 0)  // User Interrupt Enable
 
+// Return the value in register `sstatus`.
+// This register is used to control and store various status and control 
+// bits related to the privilege mode and the state of a privilege level.
 static inline uint64
 r_sstatus()
 {
   uint64 x;
+  // csrr stands for "control and status register read"
   asm volatile("csrr %0, sstatus" : "=r" (x) );
   return x;
 }
 
+// Write a value into the `sstatus` register.
+// This register is used to control and store various status and control 
+// bits related to the privilege mode and the state of a privilege level.
 static inline void 
 w_sstatus(uint64 x)
 {
+  // csrw stands for "control and status register write"
   asm volatile("csrw sstatus, %0" : : "r" (x));
 }
 
@@ -287,6 +296,8 @@ intr_get()
   return (x & SSTATUS_SIE) != 0;
 }
 
+// Return the value in register `sp`.
+// This register is the stack pointer register.
 static inline uint64
 r_sp()
 {
@@ -295,7 +306,8 @@ r_sp()
   return x;
 }
 
-// read and write tp, the thread pointer, which xv6 uses to hold
+// Return the value in register `tp`.
+// This register is the thread pointer, which xv6 uses to hold
 // this core's hartid (core number), the index into cpus[].
 static inline uint64
 r_tp()
@@ -305,12 +317,17 @@ r_tp()
   return x;
 }
 
+// Write a value into the `tp` register.
+// This register is the thread pointer register, which xv6 uses to hold
+// this core's hartid (core number), the index into cpus[].
 static inline void 
 w_tp(uint64 x)
 {
   asm volatile("mv tp, %0" : : "r" (x));
 }
 
+// Return the value in register `ra`.
+// This register commonly holds a return address.
 static inline uint64
 r_ra()
 {
@@ -319,7 +336,7 @@ r_ra()
   return x;
 }
 
-// flush the TLB.
+// flush all TLB entries.
 static inline void
 sfence_vma()
 {
@@ -339,16 +356,22 @@ typedef uint64 *pagetable_t; // 512 PTEs
 #define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1))
 
 #define PTE_V (1L << 0) // valid
-#define PTE_R (1L << 1)
-#define PTE_W (1L << 2)
-#define PTE_X (1L << 3)
+#define PTE_R (1L << 1) // readable
+#define PTE_W (1L << 2) // writable
+#define PTE_X (1L << 3) // executable
 #define PTE_U (1L << 4) // user can access
 
 // shift a physical address to the right place for a PTE.
+// 2^12 is 4096, so align to 4096 byte boundary
+// then shift left by 10 to leave 10 bits for flags
 #define PA2PTE(pa) ((((uint64)pa) >> 12) << 10)
 
+// does the reverse of PA2PTE
+// shifts left by 10 to clear flag bits,
+// then shifts by 12 to align to 4096 boundary
 #define PTE2PA(pte) (((pte) >> 10) << 12)
 
+// 0x3FF has 10 1s for the flag bits
 #define PTE_FLAGS(pte) ((pte) & 0x3FF)
 
 // extract the three 9-bit page table indices from a virtual address.
